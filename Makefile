@@ -1,3 +1,5 @@
+# Makefile for Golang dev.
+
 # Project-specific settings
 BINARY_NAME := $(shell basename "$$PWD")
 MAIN_GO := ./cmd/main.go # Define the path to your main Go file here
@@ -6,7 +8,22 @@ MAIN_GO := ./cmd/main.go # Define the path to your main Go file here
 .PHONY: init install-dogo build watch
 
 # Initial setup: install dogo, create config, and build the project
-init: dogo-init dogo-config build gen-gitignore
+init: main-init dogo-init dogo-config build gen-gitignore
+
+# Install the main.go path
+main-init:
+	@if [ ! -d $(dir $(MAIN_GO)) ]; then \
+		echo 'Creating directory: $(dir $(MAIN_GO))'; \
+		mkdir -p $(dir $(MAIN_GO)); \
+	fi
+	@if [ ! -e $(MAIN_GO) ]; then \
+		echo 'Creating default $(MAIN_GO) configuration file...'; \
+		echo 'package main\n' > $(MAIN_GO); \
+		echo 'import "fmt"\n' >> $(MAIN_GO); \
+		echo 'func main() {' >> $(MAIN_GO); \
+		echo '    fmt.Println("hello world")' >> $(MAIN_GO); \
+		echo '}' >> $(MAIN_GO); \
+	fi
 
 # Install the dogo compiler for automatic rebuilds
 dogo-init:
