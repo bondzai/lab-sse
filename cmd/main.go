@@ -1,70 +1,74 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 )
 
 var indexHTML []byte
 
 func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	htmlContent, err := os.ReadFile("../index.html")
+	if err != nil {
+		log.Fatal("Error reading HTML file:", err)
+	}
+	indexHTML = htmlContent
 
-		htmlContent, err := os.ReadFile("../index.html")
+	http.HandleFunc("/", serveHTML)
+	http.HandleFunc("/just-events", serveServerSentEvents)
+
+	err = http.ListenAndServe(":4400", nil)
+	if err != nil {
+		log.Fatal("Server error:", err)
+	}
+}
+
+func serveHTML(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write(indexHTML)
+}
+
+func serveServerSentEvents(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "SSE not supported", http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Println("Request received for price...")
+
+	w.Header().Set("Content-Type", "text/event-stream")
+
+	priceCh := make(chan int)
+
+	// Close the price channel when the client disconnects
+	defer close(priceCh)
+
+	go genCryptoPrice(r.Context(), priceCh)
+
+	for price := range priceCh {
+		event, err := formatServerSentEvent("price-update", price)
 		if err != nil {
-			log.Fatal("Error reading HTML file:", err)
-			return
-		}
-		indexHTML = htmlContent
-
-		w.Write(indexHTML)
-	})
-
-	http.HandleFunc("/just-events", func(w http.ResponseWriter, r *http.Request) {
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			http.Error(w, "SSE not supported", http.StatusInternalServerError)
-			return
+			fmt.Println(err)
+			break
 		}
 
-		fmt.Println("Request received for price...")
-
-		w.Header().Set("Content-Type", "text/event-stream")
-
-		priceCh := make(chan int)
-
-		go genCryptoPrice(r.Context(), priceCh)
-
-		for price := range priceCh {
-			event, err := formatServerSentEvent("price-update", price)
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
-
-			_, err = fmt.Fprint(w, event)
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
-
-			flusher.Flush()
+		_, err = fmt.Fprint(w, event)
+		if err != nil {
+			fmt.Println(err)
+			break
 		}
 
-		fmt.Println("Finished sending price updates...")
-	})
+		flusher.Flush()
+	}
 
-	http.ListenAndServe(":4400", nil)
+	fmt.Println("Finished sending price updates...")
 }
 
 func genCryptoPrice(ctx context.Context, priceCh chan<- int) {
@@ -85,29 +89,25 @@ outerloop:
 
 	ticker.Stop()
 
-	close(priceCh)
-
-	fmt.Println("genCryptoPrice: Finished geenrating")
+	fmt.Println("genCryptoPrice: Finished generating")
 }
 
-func formatServerSentEvent(event string, data any) (string, error) {
-	m := map[string]any{
-		"data": data,
+func formatServerSentEvent(event string, data int) (string, error) {
+	eventData := struct {
+		Event string `json:"event"`
+		Data  int    `json:"data"`
+	}{
+		Event: event,
+		Data:  data,
 	}
 
-	buff := bytes.NewBuffer([]byte{})
-
-	encoder := json.NewEncoder(buff)
-
-	err := encoder.Encode(m)
+	eventJSON, err := json.Marshal(eventData)
 	if err != nil {
 		return "", err
 	}
 
-	sb := strings.Builder{}
+	// Build the Server-Sent Event string
+	eventStr := fmt.Sprintf("event: %s\ndata: %s\n\n", event, eventJSON)
 
-	sb.WriteString(fmt.Sprintf("event: %s\n", event))
-	sb.WriteString(fmt.Sprintf("data: %v\n\n", buff.String()))
-
-	return sb.String(), nil
+	return eventStr, nil
 }
