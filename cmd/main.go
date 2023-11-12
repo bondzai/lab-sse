@@ -6,8 +6,10 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -17,6 +19,14 @@ var indexHTML []byte
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+
+		htmlContent, err := os.ReadFile("../index.html")
+		if err != nil {
+			log.Fatal("Error reading HTML file:", err)
+			return
+		}
+		indexHTML = htmlContent
+
 		w.Write(indexHTML)
 	})
 
