@@ -8,15 +8,24 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 )
 
 var indexHTML []byte
 
 func main() {
-	htmlContent, err := os.ReadFile("../index.html")
+	_, b, _, _ := runtime.Caller(0)
+	basepath := filepath.Dir(b)
+
+	// Path to the static directory relative to the executable
+	staticDir := filepath.Join(basepath, "..", "static")
+	indexPath := filepath.Join(staticDir, "index.html")
+
+	htmlContent, err := os.ReadFile(indexPath)
 	if err != nil {
-		log.Fatal("Error reading HTML file:", err)
+		log.Fatalf("Error reading HTML file: %v", err)
 	}
 	indexHTML = htmlContent
 
@@ -25,7 +34,7 @@ func main() {
 
 	err = http.ListenAndServe(":4400", nil)
 	if err != nil {
-		log.Fatal("Server error:", err)
+		log.Fatalf("Server error: %v", err)
 	}
 }
 
