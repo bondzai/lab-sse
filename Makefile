@@ -6,7 +6,7 @@ MAIN_GO := ./cmd/main.go # Define the path to your main Go file here
 .PHONY: init install-dogo build watch
 
 # Initial setup: install dogo, create config, and build the project
-init: dogo-init dogo-config build
+init: dogo-init dogo-config build gen-gitignore
 
 # Install the dogo compiler for automatic rebuilds
 dogo-init:
@@ -43,3 +43,21 @@ build:
 run:
 	@echo "  >  Running application...\n"
 	dogo -c dogo.json
+
+# Generate a .gitignore file
+gen-gitignore:
+	@echo "  >  Generating .gitignore...\n"
+	@echo "# Binaries" > .gitignore
+	@echo "bin/" >> .gitignore
+	@echo "# OS-specific files" >> .gitignore
+	@echo "*.exe" >> .gitignore
+	@echo "*.exe~" >> .gitignore
+	@echo "*.dll" >> .gitignore
+	@echo "*.so" >> .gitignore
+	@echo "*.dylib" >> .gitignore
+	@echo "# Test binary, built with 'go test -c'" >> .gitignore
+	@echo "*.test" >> .gitignore
+	@echo "# Output of the go coverage tool, specifically when used with LiteIDE" >> .gitignore
+	@echo "*.out" >> .gitignore
+	@echo "# Dependency directories (remove the comment below to include it)" >> .gitignore
+	@echo "# vendor/" >> .gitignore
